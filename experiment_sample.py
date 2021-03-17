@@ -5,9 +5,9 @@ from statistics import mean, stdev
 def connect_to_db():
     try:
         conn = connect(
-            host="raspberrypi.local",
-            user="pi",
-            password="raspberry",
+            host="relational.fit.cvut.cz",
+            user="guest",
+            password="relational",
             database="stats")
         return conn
     except Error as e:
