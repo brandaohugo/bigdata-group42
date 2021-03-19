@@ -3,6 +3,8 @@ import timeit
 from statistics import mean, stdev
 from abc import abstractmethod
 from pprint import pprint
+from os import listdir, getcwd
+from os.path import join as path_join
 
 DB_USERNAME = "pi"
 DB_PASSWORD = "raspberry"
@@ -68,29 +70,39 @@ class MariaDBConnector(DBConnector):
         return execution_query, results, elapsed_time
 
 
-def weak_scaling_profiling(db_connector, sql_query, max_limit, increment_limit, n_iterations):
-    profiling = {sql_query:{}}
+def weak_scaling_profiling(db_connector, sql_query, max_limit, increment_limit, n_iterations, profiling):
     for limit in (range(0,max_limit+1, increment_limit)):
         if limit == 0: continue
         results, profiling = db_connector.evaluate_query(sql_query, limit, n_iterations, profiling)
-        if len(results) <= limit:
+        if len(results) < limit:
             del profiling[sql_query][limit]
             break
     return profiling
 
 
+def read_queries(queries_directory):
+    queries_dir = path_join(getcwd(),queries_directory)
+    queries = []
+    for filename in listdir(queries_dir):
+        query_path = path_join(queries_dir,filename)
+        query_string = open(query_path).read().replace("\n", " ")
+        queries.append(query_string)
+    return queries
+
 if __name__ == "__main__":
     db_connector = MariaDBConnector(MARIADB_HOSTNAME, DB_USERNAME, DB_PASSWORD, MARIADB_PORT)
     db_connector.connect_to_db("stats")
 
-    n_iterations = 10
+    n_iterations = 1
     max_limit = 10000
-    increment_limit = 1000
+    increment_limit = 10000
 
+    profiling = {}
     
-    sql_query = "SELECT u.DisplayName, b.Name FROM users as u, badges as b WHERE b.id = u.id"    
-    
-    profiling = weak_scaling_profiling(db_connector, sql_query, max_limit, increment_limit, n_iterations)
+    for sql_query in read_queries("queries"):
+        if sql_query not in profiling.keys():
+            profiling[sql_query] = {}
+        profiling = weak_scaling_profiling(db_connector, sql_query, max_limit, increment_limit, n_iterations, profiling)
     pprint(profiling)
 
     db_connector.close_connection()
