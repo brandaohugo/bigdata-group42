@@ -35,6 +35,20 @@ FLUSH PRIVILEGES;
 ```
 `$ sudo systemctl restart mysql`
 
+- Create database \
+`$ mysql -upi -hlocalhost -p`
+```sql
+CREATE DATABASE stats;
+CREATE DATABASE tpcd;
+```
+
+- Dump database (with timing) \ 
+`$ time mysqldump  -P 3306 -h relational.fit.cvut.cz -u guest -p stats > stats.sql`
+`$ time mysqldump  -P 3306 -h relational.fit.cvut.cz -u guest -p tpcd > tpcd.sql`
+
+- Import database (with timing) \
+`$ time mysql -upi -p stats < stats.sql` \
+`$ time mysql -upi -p tpcd < tpcd.sql`
 
 ## MongoDB setup
 
