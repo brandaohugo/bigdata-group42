@@ -45,7 +45,9 @@ class MariaDBConnector(DBConnector):
             self.cur = conn.cursor()
             self.cur.execute("SET PROFILING=1;")
             self.cur.execute("SET PROFILING_HISTORY_SIZE=1;")
+            print("Connected to MariaDB {}:{}/{}".format(self.hostname,self.port,database))
         except Error as e:
+            print("Could not connect to MariaDB {}:{}/{}".format(self.hostname,self.port,database))
             print(e)
 
     def close_connection(self):
@@ -76,11 +78,13 @@ class MongoDBConnector(DBConnector):
                 username=self.username,
                 password=self.password,
                 port=self.port,
-                authSource="admin")
+                authSource=database)
             self.client = mongo_client
             self.database = self.client[database]
+            print("Connected to MongoDB {}:{}/{}".format(self.hostname,self.port,database))
             return self.database
         except ConnectionFailure as e:
+            print("Could not connect to MongoDB {}:{}/{}".format(self.hostname,self.port,database))
             print(e)
     
     def close_connection(self):
