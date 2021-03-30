@@ -59,14 +59,21 @@ class MariaDBConnector(DBConnector):
         assert len(all_results) == 1
         return all_results[0][1]
 
-    def execute_query(self, sql_query, limit):
+    def execute_query(self, sql_query, limit=None):
         results = []
-        execution_query = sql_query + " LIMIT {}".format(limit)
+        if limit:
+            execution_query = sql_query + " LIMIT {}".format(limit)
+        else :
+            execution_query = sql_query
         self.cur.execute(execution_query)
-        for result in self.cur:
-            results.append(result)
+        try: 
+            for result in self.cur:
+                results.append(result)
+        except Error as e:
+            pass
+        executed_query = self.cur.statement
         elapsed_time = self._get_execution_time()
-        return execution_query, results, elapsed_time
+        return executed_query, results, elapsed_time
 
 
 class MongoDBConnector(DBConnector):
@@ -92,4 +99,4 @@ class MongoDBConnector(DBConnector):
 
     def execute_query(self, sql_query, limit):
         return super().execute_query(sql_query, limit)
-   
+    
