@@ -2,10 +2,9 @@ from pprint import pprint
 from os import listdir, getcwd
 from os.path import join as path_join
 from db_utils import MariaDBConnector, MongoDBConnector
+from utils import execute_ssh_command, append_to_csv
 import json
-import timeit
-import paramiko
-import csv
+import ast
 
 
 DB_USERNAME = "pi"
@@ -15,7 +14,7 @@ DB_NAME = "stats"
 MARIADB_HOSTNAME = "raspberrypi.local"
 MARIADB_PORT = 3306
 
-MONGODB_HOSTNAME = "mongodb://ubuntu.local"
+MONGODB_HOSTNAME = "mongodb://ubuntu"
 MONGODB_PORT = 27017
 
 N_ITERATIONS = 100
@@ -47,8 +46,11 @@ def save_profiling(profilig, filename):
     with open(path_join(results_dir,filename), "w") as outfile:
         json.dump(profilig, outfile, indent=4, sort_keys=True)
 
-def run(conn, profiling_filename):
+def read_mongo_queries():
+    with open("./queries/filter_comments_by_id.nosql") as f:
+        query = ast.literal_eval(f.read())
 
+def run(conn, profiling_filename):
     profiling = {}
     for sql_query in read_queries("queries"):
         if sql_query not in profiling.keys():
@@ -65,33 +67,37 @@ def run(conn, profiling_filename):
 
     mariadb_conn.close_connection()
 
-def time_initilization(host, user, password, command, n_iterations, out_file):
-    times = []
+def _time_initilization(host, user, password, command, n_iterations, out_file):
     for i in range(n_iterations):
-        elapsed = _execute_ssh_command(host, user, password, command)
-        times.append([elapsed])
-    with open(out_file, "w") as f:
-        wr = csv.writer(f)
-        wr.writerows(times)
+        print("Iteration {} of {}".format(i+1,n_iterations))
+        _, elapsed = execute_ssh_command(host, user, password, command)
+        append_to_csv(out_file,[elapsed])
     print("Times on {}".format(out_file))
 
-def _execute_ssh_command(host, user, password, command):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    ssh.connect(host,username=user, password=password)
-    start_time = timeit.default_timer()
-    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(command)
-    ssh_stdout.readlines()
-    elapsed = timeit.default_timer() - start_time
-    return elapsed
+
+def db_initializations(maria=True, mongo=True, n_iterations=1):
+    
+    if maria:
+        print("Initialzing MariaDB")
+        cmd = 'mysql -upi -praspberry stats < stats.sql'
+        out_file = "./results/init_mariadb.csv"
+        _time_initilization(MARIADB_HOSTNAME, DB_USERNAME, DB_PASSWORD, cmd, n_iterations, out_file)
+        print("MariaDB initialized")
+
+    if mongo:
+        print("Initializing MongoDB")
+        print("Dropping database")
+        execute_ssh_command("ubuntu", "ubuntu", "raspberry","mongo stats --eval 'db.dropDatabase()" )
+        print("Database dropped")
+        
+        cmd = 'mongorestore --drop'
+        out_file = "./results/init_mongo.csv"
+        _time_initilization("ubuntu", "ubuntu", DB_PASSWORD, cmd, n_iterations, out_file)
+        print("MongoDB initialized")
 
 if __name__ == "__main__":
 
-    cmd = 'mysql -upi -praspberry stats < stats.sql'
-    out_file = "init_mariadb.csv"
-    time_initilization(MARIADB_HOSTNAME, DB_USERNAME, DB_PASSWORD, cmd, 10, out_file)
-
-    
+    db_initializations(maria=True, mongo=True, n_iterations=1)
 
     mariadb_conn = MariaDBConnector(
         MARIADB_HOSTNAME, 
@@ -101,19 +107,15 @@ if __name__ == "__main__":
     )
     mariadb_conn.connect_to_db(DB_NAME)
     
-    # time initializations
-    
-
-
     # run(mariadb_conn, "mariadb_results.json")
     
-    # mongodb_conn = MongoDBConnector(
-    #     MONGODB_HOSTNAME, 
-    #     DB_USERNAME,
-    #     DB_PASSWORD, 
-    #     MONGODB_PORT
-    # )    
-    # stats_db = mongodb_conn.connect_to_db("stats")
+    mongodb_conn = MongoDBConnector(
+        MONGODB_HOSTNAME, 
+        DB_USERNAME,
+        DB_PASSWORD, 
+        MONGODB_PORT
+    )    
+    stats_db = mongodb_conn.connect_to_db("stats")
     
     
     # user_collection = stats_db['system.users']
