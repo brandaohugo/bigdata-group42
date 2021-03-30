@@ -3,6 +3,9 @@ from os import listdir, getcwd
 from os.path import join as path_join
 from db_utils import MariaDBConnector, MongoDBConnector
 import json
+import timeit
+import paramiko
+import csv
 
 
 DB_USERNAME = "pi"
@@ -62,7 +65,33 @@ def run(conn, profiling_filename):
 
     mariadb_conn.close_connection()
 
+def time_initilization(host, user, password, command, n_iterations, out_file):
+    times = []
+    for i in range(n_iterations):
+        elapsed = _execute_ssh_command(host, user, password, command)
+        times.append([elapsed])
+    with open(out_file, "w") as f:
+        wr = csv.writer(f)
+        wr.writerows(times)
+    print("Times on {}".format(out_file))
+
+def _execute_ssh_command(host, user, password, command):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(host,username=user, password=password)
+    start_time = timeit.default_timer()
+    ssh_stdin, ssh_stdout, ssh_stderr = ssh.exec_command(command)
+    ssh_stdout.readlines()
+    elapsed = timeit.default_timer() - start_time
+    return elapsed
+
 if __name__ == "__main__":
+
+    cmd = 'mysql -upi -praspberry stats < stats.sql'
+    out_file = "init_mariadb.csv"
+    time_initilization(MARIADB_HOSTNAME, DB_USERNAME, DB_PASSWORD, cmd, 10, out_file)
+
+    
 
     mariadb_conn = MariaDBConnector(
         MARIADB_HOSTNAME, 
@@ -71,13 +100,21 @@ if __name__ == "__main__":
         MARIADB_PORT
     )
     mariadb_conn.connect_to_db(DB_NAME)
-    run(mariadb_conn, "mariadb_results.json")
     
-    mongodb_conn = MongoDBConnector(
-        MONGODB_HOSTNAME, 
-        DB_USERNAME,
-        DB_PASSWORD, 
-        MONGODB_PORT
-    )    
-    stats_db = mongodb_conn.connect_to_db("stats")
+    # time initializations
     
+
+
+    # run(mariadb_conn, "mariadb_results.json")
+    
+    # mongodb_conn = MongoDBConnector(
+    #     MONGODB_HOSTNAME, 
+    #     DB_USERNAME,
+    #     DB_PASSWORD, 
+    #     MONGODB_PORT
+    # )    
+    # stats_db = mongodb_conn.connect_to_db("stats")
+    
+    
+    # user_collection = stats_db['system.users']
+    # print(user_collection.find().explain()['executionStats']['executionTimeMillis'])
