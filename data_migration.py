@@ -114,6 +114,6 @@ if __name__ == "__main__":
     # mongodb_conn.client.drop_database(DB_NAME)
     # run_migration(mariadb_conn, mongodb_stats, DB_NAME)
     
-    denormalize_database(db_conn, DB_NAME, STATS_DENORM_SCHEMA)  
+    # denormalize_database(db_conn, DB_NAME, STATS_DENORM_SCHEMA)  
 
     

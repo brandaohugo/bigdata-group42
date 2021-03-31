@@ -3,6 +3,7 @@ from os import listdir, getcwd
 from os.path import join as path_join
 from db_utils import MariaDBConnector, MongoDBConnector
 from utils import execute_ssh_command, append_to_csv
+from queries import queries_list, get_query_by_name
 import json
 import ast
 
@@ -46,10 +47,6 @@ def save_profiling(profilig, filename):
     with open(path_join(results_dir,filename), "w") as outfile:
         json.dump(profilig, outfile, indent=4, sort_keys=True)
 
-def read_mongo_queries():
-    with open("./queries/filter_comments_by_id.nosql") as f:
-        query = ast.literal_eval(f.read())
-
 def run(conn, profiling_filename):
     profiling = {}
     for sql_query in read_queries("queries"):
@@ -74,8 +71,7 @@ def _time_initilization(host, user, password, command, n_iterations, out_file):
         append_to_csv(out_file,[elapsed])
     print("Times on {}".format(out_file))
 
-
-def db_initializations(maria=True, mongo=True, n_iterations=1):
+def db_initialization(maria=True, mongo=True, n_iterations=1):
     
     if maria:
         print("Initialzing MariaDB")
@@ -97,7 +93,7 @@ def db_initializations(maria=True, mongo=True, n_iterations=1):
 
 if __name__ == "__main__":
 
-    db_initializations(maria=True, mongo=True, n_iterations=1)
+    db_initialization(maria=False, mongo=False, n_iterations=1)
 
     mariadb_conn = MariaDBConnector(
         MARIADB_HOSTNAME, 
@@ -114,9 +110,34 @@ if __name__ == "__main__":
         DB_USERNAME,
         DB_PASSWORD, 
         MONGODB_PORT
-    )    
-    stats_db = mongodb_conn.connect_to_db("stats")
+    )
+
+    # query_name = "test" # OK   
+    # query_name = "filter_comments_by_id" 
+    # query_name = "filter_users_by_upvote" # OK
+    # query_name = "sort_posts_by_viewcount" # OK
+    # query_name = "outer_join_tags_count" # Mongo error
+    # query_name = "outer_join_comments_users" # OK
+    # query_name = "update_users_name" # Debug results
+    # query_name = "user_badges" # OK
+    # query_name = "average_post_fav_count" # Check result
+    # query_name = "count_votes_bounty" # Mongo not implemented
+    # query_name = "select_owner_not_null" # Mongo not implemented
+    # query_name = "select_tag_max_count" # Check results
+    # query_name = "sum_users_downvotes" # Not tested
+    # query_name = "count_users_by_age" # Not tested
+    # query_name = "insert_badges" # Not tested
+    # query_name = "delete_user_badges" # Not tested
+    # query_name = "drop_badges" # Not tested
     
-    
-    # user_collection = stats_db['system.users']
+    mongodb_conn.connect_to_db(DB_NAME)
+    _, maria_n_results, maria_exec_milli = mariadb_conn.execute_query(get_query_by_name(queries_list, query_name)["maria"])
+    _, mongo_n_results, mongo_exec_milli = mongodb_conn.execute_query(get_query_by_name(queries_list, query_name)["mongo"])
+    if maria_n_results != mongo_n_results:
+        print("Queries are different!")
+        print("MariaDB returned {} entries".format(maria_n_results))
+        print("MongoDB returned {} entries".format(mongo_n_results))
+    print("MariaDB exec: {}".format(maria_exec_milli))
+    print("MongoDB exec: {}".format(mongo_exec_milli))
+    # user_collection = stats_db['system.users'
     # print(user_collection.find().explain()['executionStats']['executionTimeMillis'])

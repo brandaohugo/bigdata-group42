@@ -2,7 +2,7 @@ from abc import abstractmethod
 
 
 from mariadb import connect, Error
-
+import timeit
 from pymongo import MongoClient
 from pymongo.errors import ConnectionFailure
 
@@ -66,14 +66,19 @@ class MariaDBConnector(DBConnector):
         else :
             execution_query = sql_query
         self.cur.execute(execution_query)
+        executed_query = self.cur.statement
         try: 
+            start_time = timeit.default_timer()
             for result in self.cur:
                 results.append(result)
+            send_time = timeit.default_timer() - start_time
         except Error as e:
             pass
-        executed_query = self.cur.statement
-        elapsed_time = self._get_execution_time()
-        return executed_query, results, elapsed_time
+        exec_time = self._get_execution_time()
+        # print(send_time)
+        # print(exec_time)
+        elapsed_time = round(self._get_execution_time()  * 1000 )
+        return executed_query, len(results), elapsed_time
 
 
 class MongoDBConnector(DBConnector):
@@ -97,6 +102,10 @@ class MongoDBConnector(DBConnector):
     def close_connection(self):
         self.conn.close_connection()
 
-    def execute_query(self, sql_query, limit):
-        return super().execute_query(sql_query, limit)
-    
+    def execute_query(self, sql_query, limit=None):
+        start_time = timeit.default_timer()
+        cur = sql_query(self.database)
+        results = list(cur)
+        elapsed_time = timeit.default_timer() - start_time
+        # elapsed_time = cur.explain()['executionStats']['executionTimeMillis']
+        return "", len(results), round(elapsed_time * 1000)
