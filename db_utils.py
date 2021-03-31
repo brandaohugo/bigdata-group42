@@ -45,7 +45,9 @@ class MariaDBConnector(DBConnector):
             self.cur = conn.cursor()
             self.cur.execute("SET PROFILING=1;")
             self.cur.execute("SET PROFILING_HISTORY_SIZE=1;")
+            print("Connected to MariaDB {}:{}/{}".format(self.hostname,self.port,database))
         except Error as e:
+            print("Could not connect to MariaDB {}:{}/{}".format(self.hostname,self.port,database))
             print(e)
 
     def close_connection(self):
@@ -57,14 +59,21 @@ class MariaDBConnector(DBConnector):
         assert len(all_results) == 1
         return all_results[0][1]
 
-    def execute_query(self, sql_query, limit):
+    def execute_query(self, sql_query, limit=None):
         results = []
-        execution_query = sql_query + " LIMIT {}".format(limit)
+        if limit:
+            execution_query = sql_query + " LIMIT {}".format(limit)
+        else :
+            execution_query = sql_query
         self.cur.execute(execution_query)
-        for result in self.cur:
-            results.append(result)
+        try: 
+            for result in self.cur:
+                results.append(result)
+        except Error as e:
+            pass
+        executed_query = self.cur.statement
         elapsed_time = self._get_execution_time()
-        return execution_query, results, elapsed_time
+        return executed_query, results, elapsed_time
 
 
 class MongoDBConnector(DBConnector):
@@ -76,11 +85,13 @@ class MongoDBConnector(DBConnector):
                 username=self.username,
                 password=self.password,
                 port=self.port,
-                authSource="admin")
+                authSource=database)
             self.client = mongo_client
             self.database = self.client[database]
+            print("Connected to MongoDB {}:{}/{}".format(self.hostname,self.port,database))
             return self.database
         except ConnectionFailure as e:
+            print("Could not connect to MongoDB {}:{}/{}".format(self.hostname,self.port,database))
             print(e)
     
     def close_connection(self):
@@ -88,4 +99,4 @@ class MongoDBConnector(DBConnector):
 
     def execute_query(self, sql_query, limit):
         return super().execute_query(sql_query, limit)
-   
+    
