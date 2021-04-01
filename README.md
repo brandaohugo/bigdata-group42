@@ -4,6 +4,12 @@
 
 ## Raspberrypi setup
 
+https://ubuntu.com/tutorials/how-to-install-ubuntu-on-your-raspberry-pi#5-install-a-desktop
+
+sudo apt-get install dnsmasq
+
+
+
 - Install Raspberry PI OS Lite
 1) Flash SD card with Raspberrypi OS Lite version(no GUI)
 2) After install, configure:
@@ -59,7 +65,7 @@ CREATE DATABASE tpcd;
 `$ echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu bionic/mongodb-org/4.4 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-4.4.list`
 
 - Update ubuntu \
-`$ sudo apt Update`
+`$ sudo apt update`
 
 - Install MongoDB \
 `$ sudo apt install mongodb-org`
@@ -107,6 +113,8 @@ net:
   port: 27017
   bindIp: 0.0.0.0
 ```
+
+- Copy stats_mongo_dump.zip to ubuntu home folder on the raspeberrypi
 
 - If you need to remove MongoDB to start fresh \
 `$ sudo service mongod stop` \

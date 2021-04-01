@@ -18,51 +18,42 @@ MARIADB_PORT = 3306
 MONGODB_HOSTNAME = "mongodb://ubuntu"
 MONGODB_PORT = 27017
 
-N_ITERATIONS = 100
+N_ITERATIONS = 1000
 MAX_LIMIT = 10000
 INCREMENT_LIMIT = 100
 
+SELECT_FILTER_JOIN_QUERIES = [
+    "select_comments",
+    # "filter_users_by_upvote",
+    # "select_tag_max_count",
+    # "sort_posts_by_viewcount",
+    # "filter_comments_by_id",
+    # "average_post_fav_count",
+    # "sum_users_downvotes",
+    # "count_users_by_age",
+    # "update_users_name",
+]
 
-def weak_scaling_profiling(db_connector, sql_query, max_limit, increment_limit, n_iterations, profiling):
-    print("Running Weak Scaling on query {}".format(sql_query))
-    for limit in (range(0,max_limit+1, increment_limit)):
-        if limit == 0: continue
-        results, profiling = db_connector.evaluate_query(sql_query, limit, n_iterations, profiling)
-        if len(results) < limit:
-            del profiling[sql_query][limit]
-            break
-    return profiling
+INSERT_QUERIES = [
+    "insert_badges"
+]
 
-def read_queries(queries_directory):
-    queries_dir = path_join(getcwd(),queries_directory)
-    queries = []
-    for filename in listdir(queries_dir):
-        query_path = path_join(queries_dir,filename)
-        query_string = open(query_path).read().replace("\n", " ")
-        queries.append(query_string)
-    return queries
+DELETE_QUERIES = [
+    "drop_badges",
+    "delete_user_badges",
+]
 
-def save_profiling(profilig, filename):
-    results_dir = path_join(getcwd(),"results")
-    with open(path_join(results_dir,filename), "w") as outfile:
-        json.dump(profilig, outfile, indent=4, sort_keys=True)
+# queries not implemented in the experiment
+# query_name =  # Mongo Error
+# query_name =  # Mongo error
+# query_name = # Not implemented in Mongo
+# query_name = "count_votes_bounty" #  Not implemented in Mongo
+# query_name = "select_owner_not_null" #  Not implemented in Mongo
 
-def run(conn, profiling_filename):
-    profiling = {}
-    for sql_query in read_queries("queries"):
-        if sql_query not in profiling.keys():
-            profiling[sql_query] = {}
-        profiling = weak_scaling_profiling(
-            mariadb_conn, 
-            sql_query, 
-            MAX_LIMIT, 
-            INCREMENT_LIMIT,
-            N_ITERATIONS, 
-            profiling)
-    
-    save_profiling(profiling, profiling_filename)
 
-    mariadb_conn.close_connection()
+def get_table_last_id(mariadb_conn,table):
+    _,results, _ = mariadb_conn.execute_query("SELECT Id FROM {} ORDER BY ID DESC LIMIT 1;".format(table))
+    return results[0][0]
 
 def _time_initilization(host, user, password, command, n_iterations, out_file):
     for i in range(n_iterations):
@@ -91,9 +82,66 @@ def db_initialization(maria=True, mongo=True, n_iterations=1):
         _time_initilization("ubuntu", "ubuntu", DB_PASSWORD, cmd, n_iterations, out_file)
         print("MongoDB initialized")
 
+def run_filter_join_queries(mariadb_conn,mongodb_conn,results_fname):
+    
+    for query_name in SELECT_FILTER_JOIN_QUERIES:
+        for i in range(N_ITERATIONS):
+            print("Executing {} iteration {} of {}".format(query_name, i+1, N_ITERATIONS))
+            _, maria_results, maria_exec_milli = mariadb_conn.execute_query(get_query_by_name(queries_list, query_name)["maria"])
+            _, mongo_results, mongo_exec_milli = mongodb_conn.execute_query(get_query_by_name(queries_list, query_name)["mongo"])
+            maria_n_results = len(maria_results)
+            mongo_n_results = len(mongo_results)
+            append_to_csv(results_fname,[query_name, i+1 ,maria_exec_milli, mongo_exec_milli, len(maria_results)])
+        
+
+
+def run_insert_queries(mariadb_conn,mongodb_conn,results_fname):
+    print("Running insert queries")
+    print("Initial MongoDB: " ,mongodb_conn.database['badges'].find().count())
+    mariadb_conn.cur.execute("SELECT count(*) FROM badges;")
+    print("Initial Maria:", mariadb_conn.cur.fetchall()[0][0] )
+   
+    results_fname = "./results/query_times.csv"
+    for query_name in INSERT_QUERIES:
+        last_id = get_table_last_id(mariadb_conn, "badges")
+        for i in range(N_ITERATIONS):
+            print("Executing {} iteration {} of {}".format(query_name, i+1, N_ITERATIONS))
+            last_id += 1
+            maria_query = get_query_by_name(queries_list, query_name)["maria"].format(last_id)
+            # print(maria_query)
+            mongo_query = get_query_by_name(queries_list, query_name)["mongo"]
+            _, maria_results, maria_exec_milli = mariadb_conn.execute_query(maria_query)
+            _, mongo_results, mongo_exec_milli = mongodb_conn.execute_query(mongo_query)
+            append_to_csv(results_fname,[query_name, i+1 ,maria_exec_milli, mongo_exec_milli, len(maria_results)])
+    print("Final MongoDB: " ,mongodb_conn.database['badges'].find().count())
+    mariadb_conn.cur.execute("SELECT count(*) FROM badges;")
+    print("Final Maria:", mariadb_conn.cur.fetchall()[0][0] )
+
+def run_delete_queries(mariadb_conn,mongodb_conn,results_fname):
+    print("Running delete queries")
+    print("Initial MongoDB: " ,mongodb_conn.database['badges'].find().count())
+    mariadb_conn.cur.execute("SELECT count(*) FROM badges;")
+    print("Initial Maria:", mariadb_conn.cur.fetchall()[0][0] )
+   
+    results_fname = "./results/query_times.csv"
+    for query_name in DELETE_QUERIES:
+        for i in range(N_ITERATIONS):
+            print("Executing {} iteration {} of {}".format(query_name, i+1, N_ITERATIONS))
+            maria_query = get_query_by_name(queries_list, query_name)["maria"]
+            mongo_query = get_query_by_name(queries_list, query_name)["mongo"]
+            _, maria_results, maria_exec_milli = mariadb_conn.execute_query(maria_query)
+            _, mongo_results, mongo_exec_milli = mongodb_conn.execute_query(mongo_query)
+            append_to_csv(results_fname,[query_name, i+1 ,maria_exec_milli, mongo_exec_milli, len(maria_results)])
+            print("Final MongoDB: " ,mongodb_conn.database['badges'].find().count())
+            mariadb_conn.cur.execute("SELECT count(*) FROM badges;")
+            print("Final Maria:", mariadb_conn.cur.fetchall()[0][0] )
+            db_initialization(maria=False, mongo=False, n_iterations=1)
+    
+
+
 if __name__ == "__main__":
 
-    db_initialization(maria=False, mongo=False, n_iterations=1)
+    db_initialization(maria=True, mongo=True, n_iterations=1)
 
     mariadb_conn = MariaDBConnector(
         MARIADB_HOSTNAME, 
@@ -103,41 +151,18 @@ if __name__ == "__main__":
     )
     mariadb_conn.connect_to_db(DB_NAME)
     
-    # run(mariadb_conn, "mariadb_results.json")
-    
     mongodb_conn = MongoDBConnector(
         MONGODB_HOSTNAME, 
         DB_USERNAME,
         DB_PASSWORD, 
         MONGODB_PORT
     )
-
-    # query_name = "test" # OK   
-    # query_name = "filter_comments_by_id" 
-    # query_name = "filter_users_by_upvote" # OK
-    # query_name = "sort_posts_by_viewcount" # OK
-    # query_name = "outer_join_tags_count" # Mongo error
-    # query_name = "outer_join_comments_users" # OK
-    # query_name = "update_users_name" # Debug results
-    # query_name = "user_badges" # OK
-    # query_name = "average_post_fav_count" # Check result
-    # query_name = "count_votes_bounty" # Mongo not implemented
-    # query_name = "select_owner_not_null" # Mongo not implemented
-    # query_name = "select_tag_max_count" # Check results
-    # query_name = "sum_users_downvotes" # Not tested
-    # query_name = "count_users_by_age" # Not tested
-    # query_name = "insert_badges" # Not tested
-    # query_name = "delete_user_badges" # Not tested
-    # query_name = "drop_badges" # Not tested
-    
     mongodb_conn.connect_to_db(DB_NAME)
-    _, maria_n_results, maria_exec_milli = mariadb_conn.execute_query(get_query_by_name(queries_list, query_name)["maria"])
-    _, mongo_n_results, mongo_exec_milli = mongodb_conn.execute_query(get_query_by_name(queries_list, query_name)["mongo"])
-    if maria_n_results != mongo_n_results:
-        print("Queries are different!")
-        print("MariaDB returned {} entries".format(maria_n_results))
-        print("MongoDB returned {} entries".format(mongo_n_results))
-    print("MariaDB exec: {}".format(maria_exec_milli))
-    print("MongoDB exec: {}".format(mongo_exec_milli))
-    # user_collection = stats_db['system.users'
-    # print(user_collection.find().explain()['executionStats']['executionTimeMillis'])
+     
+    results_fname = "./results/query_times.csv"
+    append_to_csv(results_fname,["query_name", "iteration", "maria_exec_milli", "mongo_exec_milli", "n_results"])
+    
+    run_filter_join_queries(mariadb_conn,mongodb_conn,results_fname)
+    run_insert_queries(mariadb_conn,mongodb_conn,results_fname)
+    run_delete_queries(mariadb_conn,mongodb_conn,results_fname)
+    

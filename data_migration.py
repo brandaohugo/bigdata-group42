@@ -9,7 +9,7 @@ DB_NAME = "stats"
 MARIADB_HOSTNAME = "raspberrypi.local"
 MARIADB_PORT = 3306
 
-MONGODB_HOSTNAME = "mongodb://ubuntu.local"
+MONGODB_HOSTNAME = "mongodb://ubuntu"
 MONGODB_PORT = 27017
 
 STATS_DENORM_SCHEMA = {
@@ -110,6 +110,18 @@ if __name__ == "__main__":
     ) 
     
     db_conn = mongodb_conn.connect_to_db(DB_NAME)
+    db_name = 'stats'
+
+    for table in get_maria_table_names(mariadb_conn):
+        print(table)
+        cols = get_maria_table_col_names(mariadb_conn,db_name, table)
+        _,results, _ = mariadb_conn.execute_query("SELECT Id FROM {} ORDER BY ID DESC LIMIT 1;".format(table))
+        last_id = results[0][0]
+        data_cols = ",".join(cols[1:])
+        _,results, _ = mariadb_conn.execute_query("SELECT {} FROM {};".format(data_cols,table))
+        print(len(results))
+
+
 
     # mongodb_conn.client.drop_database(DB_NAME)
     # run_migration(mariadb_conn, mongodb_stats, DB_NAME)
