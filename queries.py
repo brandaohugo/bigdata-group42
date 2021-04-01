@@ -10,12 +10,12 @@ WHERE
 def filter_comments_by_id_mongo(db):
    return db.comments.find({
       "$and": [{
-      "	Id ":{ "$gte" : '100'  }
-   },{ " ":{ "$lte" :  '200' }
+      "Id":{ "$gte" : 100  }
+   },{ "Id":{ "$lte" :  200 }
       }]
    },{
-      "	Id": 1,
-      "	Score": 1
+      "Id": 1,
+      "Score": 1
    })
 
 user_badges_maria = """SELECT 
@@ -30,7 +30,7 @@ WHERE
 
 
 
-def user_badges_mongo():
+def user_badges_mongo(db):
    return None
 
 count_votes_bounty = """SELECT 
@@ -60,17 +60,17 @@ def filter_users_by_upvote_mongo(db):
       })
 
 sort_posts_by_viewcount_maria = """SELECT
-     Viewcount,
-     Id
+     Id,
+     ViewCount
 FROM
      posts
 ORDER BY
-     Viewcount"""
+     ViewCount, Id"""
 
 def sort_posts_by_viewcount_mongo(db):
    return db.posts.aggregate([
-    {"$sort": {"Viewcount": 1}},
-    {"$project": {"Viewcount": 1 ,  "Id": 1, "_id": 0}},
+    {"$sort": {"ViewCount": 1}},
+    {"$project": {"ViewCount": 1 ,  "Id": 1, "_id": 0}},
     ], allowDiskUse=True)
 
 outer_join_tags_count_maria = """SELECT 
@@ -158,17 +158,9 @@ def average_post_fav_count_mongo(db):
          "$group":
          {
             "_id": "Id",
-            "AverageValue": { "$avg": "$FavouriteCount" }
+            "AverageValue": { "$avg": "$FavoriteCount" }
          }
-      },
-      {
-            "$project":
-               {
-                  "_id": 0,
-                  "Id": 0
-               }
       }
-
       ])
 
 
@@ -225,16 +217,16 @@ def sum_users_downvotes_mongo(db):
          "$group":
          {
             "_id": "Id",
-            "Sum": { "$sum": "$Downvotes" }
+            "Sum": { "$sum": "$DownVotes" }
          }
       },
-      {
-         "$project":
-               {
-                  "_id": 0,
-                  "Id": 0
-               }
-      }
+      # {
+      #    "$project":
+      #          {
+      #             "_id": 0,
+      #             "Id": 0
+      #          }
+      # }
 ])
 
 
@@ -248,18 +240,18 @@ def count_users_by_age_mongo(db):
    return db.users.aggregate(
       [
 
-      {"$group" : {"_id":"$Age", "count":{"$sum":1}}}
-
+      {"$group" : {"_id":"$Age", "count":{"$sum":1}}},
+      # {"Age":1, "count":1}
       ])
 
 insert_badges_maria = """INSERT INTO 
 	badges(Id, userId, Name, Date)
 VALUES
-	(4321, 27, 'Critic', '2013-12-03 11:54:06')
-)"""
+	({}, 27, 'Critic', '2013-12-03 11:54:06')
+"""
 
 def insert_badges_mongo(db):
-   return db.badges.insert_one( { "Id": "4321", "UserId": 27, "Name": "Critic", "Date": '2013-12-03 11:54:06'  } )
+   return db.badges.insert_one( { "Id": "233333", "UserId": 27, "Name": "Critic", "Date": '2013-12-03 11:54:06'  } )
 
 
 delete_user_badges_maria = """DELETE FROM 
@@ -268,25 +260,26 @@ WHERE
 	userId = 27"""
 
 def delete_user_badges_mongo(db):
-   return db.badges.deleteMany(
+   return db.badges.delete_one(
       { "UserId": 27}
 )
 
-drop_badges_maria = """DELETE FROM 
+drop_badges_maria = """DROP TABLE 
 	badges"""
 
 def drop_badges_mongo(db):
    return db.badges.drop()
 
-test_maria = """
+select_comments_maria = """
 SELECT
    *
 FROM
    comments
+LIMIT 50000
 """
 
-def test_mongo(db,limit=None):
-    return db.comments.find()
+def select_comments_mongo(db,limit=None):
+    return db.comments.find().limit(50000)
 
 
 queries_list = [
@@ -294,10 +287,6 @@ queries_list = [
    { "name" : "filter_comments_by_id",
       "maria" : filter_comments_by_id_maria,
       "mongo": filter_comments_by_id_mongo
-   },
-   { "name": "test",
-      "maria": test_maria,
-      "mongo": test_mongo
    },
    { "name": "filter_users_by_upvote",
       "maria": filter_users_by_upvote_maria,
@@ -358,6 +347,10 @@ queries_list = [
    { "name": "user_badges",
       "maria": user_badges_maria,
       "mongo": user_badges_mongo
+   },
+   { "name": "select_comments",
+      "maria": select_comments_maria,
+      "mongo": select_comments_mongo
    },
 ]
 
